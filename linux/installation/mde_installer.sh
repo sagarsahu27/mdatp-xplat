@@ -475,9 +475,12 @@ set_package_manager()
     elif [ "$DISTRO_FAMILY" = "fedora" ]; then
         PKG_MGR=yum
         PKG_MGR_INVOKER="yum $ASSUMEYES"
-    elif [ "$DISTRO_FAMILY" = "mariner" ] || [ "$DISTRO_FAMILY" = "azurelinux" ]; then
+    elif [ "$DISTRO_FAMILY" = "mariner" ]; then
         PKG_MGR=dnf
         PKG_MGR_INVOKER="dnf $ASSUMEYES"
+    elif [ "$DISTRO_FAMILY" = "azurelinux" ]; then
+        PKG_MGR=tdnf
+        PKG_MGR_INVOKER="tdnf $ASSUMEYES"
     elif [ "$DISTRO_FAMILY" = "sles" ]; then
         DISTRO="sles"
         PKG_MGR="zypper"
@@ -744,18 +747,21 @@ install_on_azurelinux()
         return
     fi
 
-    # To use config-manager plugin, install dnf-plugins-core package
-    run_quietly "$PKG_MGR_INVOKER install dnf-plugins-core" "failed to install dnf-plugins-core"
-
     ### Install MDE ###
     log_info "[>] installing MDE"
     if [ "$CHANNEL" = "prod" ]; then
         run_quietly "$PKG_MGR_INVOKER install azurelinux-repos-ms-non-oss" "unable to install azurelinux-repos-ms-non-oss"
         run_quietly "$PKG_MGR_INVOKER config-manager --enable azurelinux-repos-ms-non-oss" "unable to enable extras repo"
-        run_quietly "$PKG_MGR_INVOKER config-manager --disable azurelinux-repos-ms-non-oss-preview" "unable to disable extras-preview repo"
+        if tdnf repolist | grep -q "azurelinux-repos-ms-non-oss-preview"; then
+            run_quietly "$PKG_MGR_INVOKER config-manager --disable azurelinux-repos-ms-non-oss-preview" "unable to disable extras-preview repo"
+        fi
     else
         ### Add Preview Repo File ###
         run_quietly "$PKG_MGR_INVOKER install azurelinux-repos-ms-non-oss-preview" "unable to install azurelinux-repos-ms-non-oss-preview"
+        run_quietly "$PKG_MGR_INVOKER config-manager --enable azurelinux-repos-ms-non-oss-preview" "unable to enable extras-preview repo"
+        if tdnf repolist | grep -q "azurelinux-repos-ms-non-oss"; then
+            run_quietly "$PKG_MGR_INVOKER config-manager --disable azurelinux-repos-ms-non-oss" "unable to disable ms-non-oss repo"
+        fi
     fi
 
     local version=""
